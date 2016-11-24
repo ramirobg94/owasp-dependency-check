@@ -1,0 +1,10 @@
+import requests
+
+
+def test_hello_returns_hola():
+    r = requests.get("http://127.0.0.1:5000")
+    
+    assert r.status_code == 200
+    assert r.text == "hola"
+
+
