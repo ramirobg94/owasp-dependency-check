@@ -1,4 +1,4 @@
 redis
 flask
 celery
-gitpython
+gittle
