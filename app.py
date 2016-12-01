@@ -7,7 +7,6 @@ from celery import Celery
 import os
 from subprocess import call
 import time
-import junitxml
 
 #repo_path = '/tmp/tmpRepo'
 #repo_url = 'git://github.com/FriendCode/gittle.git'
@@ -59,6 +58,45 @@ def checkertask(lang, repo, type):
     os.system('ls ' + path)
     return 2
 
+
+@celery.task(name="retiretask")
+def retiretask(lang, repo, type):
+
+    path = repo.split('/')[-1]
+    name = path[:-4]
+    path = '/tmp/repoTmpoR/' + name
+    os.system('git clone '+repo+' '+path)
+    #os.system('ls '+path)
+    print(path)
+    print(path + '/checkba.txt')
+    print(path + '/package.json')
+    os.system('cd '+ path)
+    os.chdir(path)
+    os.system('npm install')
+    os.system('retire --outputformat text --outputpath '+ path +'/checkba.txt')
+    #os.system('ls '+path)
+    #fp = file('results.xml', 'wb')
+    #result = junitxml.JUnitXmlResult(fp)
+    #os.system('ls ' + path)
+
+    f = open("checkba.txt", "r").readlines()
+    cleared_results = []
+
+    for x in f:
+        if "has known vulnerabilities" in x:
+            parsed = x.split(" ")
+            default = ["no library", "no version", "no level", "no summary", "no advisory"]
+            default[0] = parsed[0]
+            default[1] = parsed[1]
+            if "severity" in x:
+                default[2] = parsed[7]
+            default[3] = x[x.find("summary"):].replace("\n", '')
+            default[4] = x[x.find("advisory"):].replace("\n", '')
+            cleared_results.append(default)
+
+    return 2
+
+
 @app.route("/")
 def hello():
     celery.send_task("mytask", args=(2, 3))
@@ -70,9 +108,11 @@ def check():
     lang = request.args['lang']
     repo = request.args['repo']
     type = request.args['type']
-    celery.send_task("checkertask", args=(lang, repo, type))
+    #celery.send_task("checkertask", args=(lang, repo, type))
+    celery.send_task("retiretask", args=(lang, repo, type))
     return "checking"
 
 
 if __name__ == "__main__":
     app.run()
+
