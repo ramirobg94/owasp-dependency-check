@@ -1,20 +1,13 @@
 from flask import Flask
 from flask import request
 from celery import Celery
-#from urllib.parse import urlencode
-#from urllib.parse import urlparse
-#from gittle import Gittle
+from cpe import CPE
 import os
 from subprocess import call
 import time
 from vulnerability import Vulnerability
 import xml.etree.ElementTree as ET
 
-#repo_path = '/tmp/tmpRepo'
-#repo_url = 'git://github.com/FriendCode/gittle.git'
-#repo_path_b = repo_path.encode(encoding="ascii")
-#repo_url_b = repo_url.encode(encoding="ascii")
-#repo = Gittle.clone(repo_url_b, repo_path)
 
 def make_celery(app):
     celery = Celery(app.import_name, backend=app.config['CELERY_BACKEND'],
@@ -58,11 +51,28 @@ def checkertask(lang, repo, type):
 
     tree = ET.parse(path + '/dependency-check-report.xml')
     root = tree.getroot()
-    print(root)
-    for vulnerability in root.findall('./dependencies'):
-        print(vulnerability)
-        #name = vulnerability.find('name').text
-        #print(name)
+    cleared_results = []
+    for neighbor in root[2]:
+        for elemts in neighbor:
+            if 'vulnerabilities' in elemts.tag:
+                for vulnerability in elemts:
+                    for vulnerabilityTags in vulnerability:
+
+                        if 'severity' in vulnerabilityTags.tag:
+                            severity = vulnerabilityTags.text
+                        if 'description' in vulnerabilityTags.tag:
+                            description =  vulnerabilityTags.text
+                        if 'vulnerableSoftware' in vulnerabilityTags.tag:
+                            for software in vulnerabilityTags:
+                                if 'allPreviousVersion' in software.attrib:
+                                    cpe = CPE(software.text)
+                                    product = cpe.get_product()[0]
+                                    version = cpe.get_version()[0]
+                                    vulnerability = Vulnerability(product, version, severity, description, '')
+                                    cleared_results.append(vulnerability)
+                                    print(vulnerability)
+    print(cleared_results)
+
     #fp = file('results.xml', 'wb')
     #result = junitxml.JUnitXmlResult(fp)
     os.system('ls ' + path)
