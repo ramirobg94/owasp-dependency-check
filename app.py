@@ -7,6 +7,8 @@ from subprocess import call
 import time
 from vulnerability import Vulnerability
 import xml.etree.ElementTree as ET
+from flask_sqlalchemy import SQLAlchemy
+
 
 
 def make_celery(app):
@@ -30,8 +32,51 @@ app.config.update(
     CELERY_BACKEND='redis://localhost:6379',
     CELERY_BROKER_URL='redis://localhost:6379'
 )
-
 celery = make_celery(app)
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+pg8000://postgres:password@localhost/vulnerabilities'
+db = SQLAlchemy(app)
+
+class Vulnerabilities(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product = db.Column(db.String(150))
+    version = db.Column(db.String(100))
+    severity = db.Column(db.String(20))
+    description = db.Column(db.String(500))
+    advisory = db.Column(db.String(500))
+    project_id = db.Column(db.Integer, db.ForeignKey('vulnerabilities.id'))
+
+    def __init__(self, product, version, severity, description, advisory, project_id):
+        self.product = product
+        self.version = version
+        self.severity = severity
+        self.description = description
+        self.advisory = advisory
+        self.project_id = project_id
+
+    def __repr__(self):
+        return '<product %r>' % self.product
+
+class Project(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lang = db.Column(db.String(150))
+    repo = db.Column(db.String(150))
+    type = db.Column(db.String(150))
+    numberTests = db.Column(db.Integer)
+    passedTests = db.Column(db.Integer)
+    vulnerabilities = db.relationship('Vulnerabilities', backref="vulnerabilities", cascade="all, delete-orphan", lazy='dynamic')
+
+    def __init__(self, lang, repo, type, numberTests, passedTests):
+        self.lang = lang
+        self.repo = repo
+        self.type = type
+        self.numberTests = numberTests
+        self.passedTests = passedTests
+
+    def __repr__(self):
+        return '<repo %r>' % self.repo
+
 
 
 @celery.task(name="mytask")
@@ -129,7 +174,7 @@ def hello():
 def check():
     lang = request.args['lang']
     repo = request.args['repo']
-    type = request.args['type']
+    type = request.args['type'] #zip or git
     celery.send_task("checkertask", args=(lang, repo, type))
     #celery.send_task("retiretask", args=(lang, repo, type))
     return "checking"

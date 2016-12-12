@@ -2,3 +2,6 @@ redis
 flask
 celery
 gittle
+CPE
+SQLAlchemy
+pg8000
