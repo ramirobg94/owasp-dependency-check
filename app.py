@@ -32,11 +32,32 @@ app.config.update(
     CELERY_BACKEND='redis://localhost:6379',
     CELERY_BROKER_URL='redis://localhost:6379'
 )
+
+redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
 celery = make_celery(app)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+pg8000://postgres:password@localhost/vulnerabilities'
 db = SQLAlchemy(app)
+
+class Project(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lang = db.Column(db.String(150))
+    repo = db.Column(db.String(150))
+    type = db.Column(db.String(150))
+    numberTests = db.Column(db.Integer)
+    passedTests = db.Column(db.Integer)
+    vulnerabilities = db.relationship('Vulnerabilities', backref="project", cascade="all, delete-orphan", lazy='dynamic')
+
+    def __init__(self, lang, repo, type, numberTests, passedTests):
+        self.lang = lang
+        self.repo = repo
+        self.type = type
+        self.numberTests = numberTests
+        self.passedTests = passedTests
+
+    def __repr__(self):
+        return '<repo %r>' % self.repo
 
 class Vulnerabilities(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -45,7 +66,7 @@ class Vulnerabilities(db.Model):
     severity = db.Column(db.String(20))
     description = db.Column(db.String(500))
     advisory = db.Column(db.String(500))
-    project_id = db.Column(db.Integer, db.ForeignKey('vulnerabilities.id'))
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'))
 
     def __init__(self, product, version, severity, description, advisory, project_id):
         self.product = product
@@ -58,26 +79,6 @@ class Vulnerabilities(db.Model):
     def __repr__(self):
         return '<product %r>' % self.product
 
-class Project(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    lang = db.Column(db.String(150))
-    repo = db.Column(db.String(150))
-    type = db.Column(db.String(150))
-    numberTests = db.Column(db.Integer)
-    passedTests = db.Column(db.Integer)
-    vulnerabilities = db.relationship('Vulnerabilities', backref="vulnerabilities", cascade="all, delete-orphan", lazy='dynamic')
-
-    def __init__(self, lang, repo, type, numberTests, passedTests):
-        self.lang = lang
-        self.repo = repo
-        self.type = type
-        self.numberTests = numberTests
-        self.passedTests = passedTests
-
-    def __repr__(self):
-        return '<repo %r>' % self.repo
-
-
 
 @celery.task(name="mytask")
 def add(x, y):
@@ -85,7 +86,7 @@ def add(x, y):
     return x + y
 
 @celery.task(name="checkertask")
-def checkertask(lang, repo, type):
+def checkertask(lang, repo, type, project_id):
 
     path = repo.split('/')[-1]
     name = path[:-4]
@@ -115,9 +116,14 @@ def checkertask(lang, repo, type):
                                     version = cpe.get_version()[0]
                                     vulnerability = Vulnerability(product, version, severity, description, '')
                                     cleared_results.append(vulnerability)
-                                    print(vulnerability)
-    print(cleared_results)
 
+    for vulnerability in cleared_results:
+        vul  = Vulnerabilities(vulnerability.library, vulnerability.version, vulnerability.severity, vulnerability.summary, vulnerability.advisory, project_id)
+        db.session.add(vul)
+        db.session.commit()
+        #vuls = Vulnerabilities.query.all()
+
+        #vul  = Vulnerabilities(project_id,)
     #fp = file('results.xml', 'wb')
     #result = junitxml.JUnitXmlResult(fp)
     os.system('ls ' + path)
@@ -125,7 +131,7 @@ def checkertask(lang, repo, type):
 
 
 @celery.task(name="retiretask")
-def retiretask(lang, repo, type):
+def retiretask(lang, repo, type, project_id):
 
     path = repo.split('/')[-1]
     name = path[:-4]
@@ -175,8 +181,14 @@ def check():
     lang = request.args['lang']
     repo = request.args['repo']
     type = request.args['type'] #zip or git
-    celery.send_task("checkertask", args=(lang, repo, type))
-    #celery.send_task("retiretask", args=(lang, repo, type))
+
+    project = Project(lang, repo, type, 3, 0)
+    db.session.add(project)
+    db.session.commit()
+    #projects = Project.query.all()
+
+    celery.send_task("checkertask", args=(lang, repo, type, project.id))
+    #celery.send_task("retiretask", args=(lang, repo, type, project.id))
     return "checking"
 
 
