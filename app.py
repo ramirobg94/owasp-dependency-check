@@ -8,6 +8,7 @@ import time
 from vulnerability import Vulnerability
 import xml.etree.ElementTree as ET
 from flask_sqlalchemy import SQLAlchemy
+import redis
 
 
 
@@ -34,6 +35,8 @@ app.config.update(
 )
 
 redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
+redis_db.ping
+
 celery = make_celery(app)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -85,6 +88,55 @@ def add(x, y):
     print(x)
     return x + y
 
+@celery.task(name="joinertask")
+def joinertask(project_id, other):
+
+    p = Project.query.get(project_id)
+    p.passedTests  = p.passedTests + 1
+    db.session.commit()
+    if (p.passedTests == p.numberTests):
+        r = redis_db.hgetall(project_id)
+        print(project_id)
+        results = []
+        for x in r.values():
+            results.append(eval(x.decode()))
+
+        cleaned_results = []
+
+        #print(results)
+        print(len(results))
+        for i, result in enumerate(results):
+
+            if( result['library'] == ''):
+                pass
+            elif (len(cleaned_results) <= 0):
+                cleaned_results.append(result)
+            else:
+                _temp_add = {}
+                for vulR in cleaned_results:
+                    if(result['library'] == vulR['library'] and result['advisory'] == vulR['advisory']):
+                        break
+                else:
+                    _temp_add = result
+
+                if (len(_temp_add) > 0):
+                    cleaned_results.append(_temp_add)
+
+
+        #print(cleaned_results)
+        print(len(cleaned_results))
+        for vul in cleaned_results:
+            vul = Vulnerabilities(vul['library'], vul['version'], vul['severity'],vul['summary'], vul['advisory'], project_id)
+            db.session.add(vul)
+            db.session.commit()
+
+        vuls = Vulnerabilities.query.all()
+        #print(vuls)
+
+
+    return "joiner TODO"
+
+
 @celery.task(name="checkertask")
 def checkertask(lang, repo, type, project_id):
 
@@ -92,7 +144,6 @@ def checkertask(lang, repo, type, project_id):
     name = path[:-4]
     path = '/tmp/repoTmpo/' + name
     os.system('git clone '+repo+' '+path)
-    os.system('ls '+path)
     os.system('dependency-check --project "'+ repo +'"  --scan "'+ path +'" -f "XML" -o  "'+ path +'" --enableExperimental')
 
     tree = ET.parse(path + '/dependency-check-report.xml')
@@ -108,25 +159,30 @@ def checkertask(lang, repo, type, project_id):
                             severity = vulnerabilityTags.text
                         if 'description' in vulnerabilityTags.tag:
                             description =  vulnerabilityTags.text
+                        if 'name' in vulnerabilityTags.tag:
+                            advisor = vulnerabilityTags.text
                         if 'vulnerableSoftware' in vulnerabilityTags.tag:
                             for software in vulnerabilityTags:
                                 if 'allPreviousVersion' in software.attrib:
                                     cpe = CPE(software.text)
                                     product = cpe.get_product()[0]
                                     version = cpe.get_version()[0]
-                                    vulnerability = Vulnerability(product, version, severity, description, '')
-                                    cleared_results.append(vulnerability)
+                                    vulnerability = Vulnerability(product, version, severity, description, advisor)
+                                    redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
+                                    #cleared_results.append(vulnerability)
 
-    for vulnerability in cleared_results:
-        vul  = Vulnerabilities(vulnerability.library, vulnerability.version, vulnerability.severity, vulnerability.summary, vulnerability.advisory, project_id)
-        db.session.add(vul)
-        db.session.commit()
+
+    #for vulnerability in cleared_results:
+    #    vul  = Vulnerabilities(vulnerability.library, vulnerability.version, vulnerability.severity, vulnerability.summary, vulnerability.advisory, project_id)
+    #    db.session.add(vul)
+    #    db.session.commit()
         #vuls = Vulnerabilities.query.all()
 
         #vul  = Vulnerabilities(project_id,)
     #fp = file('results.xml', 'wb')
     #result = junitxml.JUnitXmlResult(fp)
-    os.system('ls ' + path)
+
+    celery.send_task("joinertask", args=(project_id, 1))
     return 2
 
 
@@ -138,9 +194,6 @@ def retiretask(lang, repo, type, project_id):
     path = '/tmp/repoTmpoR/' + name
     os.system('git clone '+repo+' '+path)
     #os.system('ls '+path)
-    print(path)
-    print(path + '/checkba.txt')
-    print(path + '/package.json')
     os.system('cd '+ path)
     os.chdir(path)
     os.system('npm install')
@@ -163,10 +216,12 @@ def retiretask(lang, repo, type, project_id):
             else:
                 severity = ''
             summary  = x[x.find("summary"):].replace("\n", '')
-            advisory = x[x.find("advisory"):].replace("\n", '')
-            vulnerability = Vulnerability(library, version, severity, summary, advisory)
+            summary = x[x.find("advisory"):].replace("\n", '')
+            vulnerability = Vulnerability(library, version, severity, summary, '')
+            redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
             cleared_results.append(vulnerability)
 
+    celery.send_task("joinertask", args=(project_id, 1))
     return 2
 
 
@@ -182,7 +237,7 @@ def check():
     repo = request.args['repo']
     type = request.args['type'] #zip or git
 
-    project = Project(lang, repo, type, 3, 0)
+    project = Project(lang, repo, type, 1, 0)
     db.session.add(project)
     db.session.commit()
     #projects = Project.query.all()
@@ -194,4 +249,6 @@ def check():
 
 if __name__ == "__main__":
     app.run()
+    #filter(20)
+    #filter(20)
 

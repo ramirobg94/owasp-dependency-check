@@ -5,3 +5,4 @@ gittle
 CPE
 SQLAlchemy
 pg8000
+redis
