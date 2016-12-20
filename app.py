@@ -148,7 +148,8 @@ def checkertask(lang, repo, type, project_id):
 
     tree = ET.parse(path + '/dependency-check-report.xml')
     root = tree.getroot()
-    cleared_results = []
+    indexF = 0
+    cleared_results = {}
     for neighbor in root[2]:
         for elemts in neighbor:
             if 'vulnerabilities' in elemts.tag:
@@ -160,27 +161,28 @@ def checkertask(lang, repo, type, project_id):
                         if 'description' in vulnerabilityTags.tag:
                             description =  vulnerabilityTags.text
                         if 'name' in vulnerabilityTags.tag:
-                            advisor = vulnerabilityTags.text
+                            advisory = vulnerabilityTags.text
                         if 'vulnerableSoftware' in vulnerabilityTags.tag:
                             for software in vulnerabilityTags:
                                 if 'allPreviousVersion' in software.attrib:
                                     cpe = CPE(software.text)
                                     product = cpe.get_product()[0]
                                     version = cpe.get_version()[0]
-                                    vulnerability = Vulnerability(product, version, severity, description, advisor)
-                                    redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
+                                    vulnerability = Vulnerability(product, version, severity, description, advisory)
+                                    indexF = indexF + 1
+                                    print(indexF)
+                                    #redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
+                                    print(vulnerability.library)
+                                    #la siguiente linea es la que corta si la comentas se ve que el numero de indexF es siempre constante
+                                    cleared_results['%s' % id(vulnerability)] = vulnerability.__dict__
+                                    print(len(cleared_results))
                                     #cleared_results.append(vulnerability)
 
 
-    #for vulnerability in cleared_results:
-    #    vul  = Vulnerabilities(vulnerability.library, vulnerability.version, vulnerability.severity, vulnerability.summary, vulnerability.advisory, project_id)
-    #    db.session.add(vul)
-    #    db.session.commit()
-        #vuls = Vulnerabilities.query.all()
+    #A print(len(cleared_results))
+    redis_db.hmset(project_id, cleared_results)
+    #r = redis_db.hgetall(project_id)
 
-        #vul  = Vulnerabilities(project_id,)
-    #fp = file('results.xml', 'wb')
-    #result = junitxml.JUnitXmlResult(fp)
 
     celery.send_task("joinertask", args=(project_id, 1))
     return 2
