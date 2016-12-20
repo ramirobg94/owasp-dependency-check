@@ -9,7 +9,7 @@ from vulnerability import Vulnerability
 import xml.etree.ElementTree as ET
 from flask_sqlalchemy import SQLAlchemy
 import redis
-
+import uuid
 
 
 def make_celery(app):
@@ -150,6 +150,7 @@ def checkertask(lang, repo, type, project_id):
     root = tree.getroot()
     indexF = 0
     cleared_results = {}
+
     for neighbor in root[2]:
         for elemts in neighbor:
             if 'vulnerabilities' in elemts.tag:
@@ -170,19 +171,8 @@ def checkertask(lang, repo, type, project_id):
                                     version = cpe.get_version()[0]
                                     vulnerability = Vulnerability(product, version, severity, description, advisory)
                                     indexF = indexF + 1
-                                    print(indexF)
-                                    #redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
-                                    print(vulnerability.library)
-                                    #la siguiente linea es la que corta si la comentas se ve que el numero de indexF es siempre constante
-                                    cleared_results['%s' % id(vulnerability)] = vulnerability.__dict__
-                                    print(len(cleared_results))
-                                    #cleared_results.append(vulnerability)
-
-
-    #A print(len(cleared_results))
-    redis_db.hmset(project_id, cleared_results)
-    #r = redis_db.hgetall(project_id)
-
+                                    redis_db.hmset(project_id, {str(uuid.uuid1()): vulnerability.__dict__})
+                                    #cleared_results[str(uuid.uuid1())] = vulnerability.__dict__
 
     celery.send_task("joinertask", args=(project_id, 1))
     return 2
@@ -220,8 +210,8 @@ def retiretask(lang, repo, type, project_id):
             summary  = x[x.find("summary"):].replace("\n", '')
             summary = x[x.find("advisory"):].replace("\n", '')
             vulnerability = Vulnerability(library, version, severity, summary, '')
-            redis_db.hmset(project_id, {'%s' % id(vulnerability): vulnerability.__dict__})
-            cleared_results.append(vulnerability)
+            redis_db.hmset(project_id, {str(uuid.uuid1()): vulnerability.__dict__})
+
 
     celery.send_task("joinertask", args=(project_id, 1))
     return 2
@@ -239,13 +229,13 @@ def check():
     repo = request.args['repo']
     type = request.args['type'] #zip or git
 
-    project = Project(lang, repo, type, 1, 0)
+    project = Project(lang, repo, type, 2, 0)
     db.session.add(project)
     db.session.commit()
     #projects = Project.query.all()
 
     celery.send_task("checkertask", args=(lang, repo, type, project.id))
-    #celery.send_task("retiretask", args=(lang, repo, type, project.id))
+    celery.send_task("retiretask", args=(lang, repo, type, project.id))
     return "checking"
 
 
