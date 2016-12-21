@@ -12,6 +12,7 @@ import redis
 import uuid
 
 
+#Configuración de la application y el acceso a la bbdd
 def make_celery(app):
     celery = Celery(app.import_name, backend=app.config['CELERY_BACKEND'],
                     broker=app.config['CELERY_BROKER_URL'])
@@ -35,7 +36,6 @@ app.config.update(
 )
 
 redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
-redis_db.ping
 
 celery = make_celery(app)
 
@@ -43,6 +43,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+pg8000://postgres:password@localhost/vulnerabilities'
 db = SQLAlchemy(app)
 
+#Modelos de las bbdd projects
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lang = db.Column(db.String(150))
@@ -62,6 +63,7 @@ class Project(db.Model):
     def __repr__(self):
         return '<repo %r>' % self.repo
 
+# Modelos de la bbdd vulnerabilities
 class Vulnerabilities(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product = db.Column(db.String(150))
@@ -83,11 +85,13 @@ class Vulnerabilities(db.Model):
         return '<product %r>' % self.product
 
 
+# task de prueba
 @celery.task(name="mytask")
 def add(x, y):
     print(x)
     return x + y
 
+# Task que se encarga de juntar todas las vulnerabilidades
 @celery.task(name="joinertask")
 def joinertask(project_id, other):
 
@@ -137,6 +141,7 @@ def joinertask(project_id, other):
     return "joiner TODO"
 
 
+# Task que pasa el dependency-check y guarda las vulnerabilidades en un formato unificado al redis
 @celery.task(name="checkertask")
 def checkertask(lang, repo, type, project_id):
 
@@ -177,7 +182,7 @@ def checkertask(lang, repo, type, project_id):
     celery.send_task("joinertask", args=(project_id, 1))
     return 2
 
-
+# Task que pasa retire que es el comprado de nodejs devulve las vulnerabilidades al redis
 @celery.task(name="retiretask")
 def retiretask(lang, repo, type, project_id):
 
@@ -185,7 +190,6 @@ def retiretask(lang, repo, type, project_id):
     name = path[:-4]
     path = '/tmp/repoTmpoR/' + name
     os.system('git clone '+repo+' '+path)
-    #os.system('ls '+path)
     os.system('cd '+ path)
     os.chdir(path)
     os.system('npm install')
@@ -195,7 +199,6 @@ def retiretask(lang, repo, type, project_id):
     #os.system('ls ' + path)
 
     f = open("checkba.txt", "r").readlines()
-    cleared_results = []
 
     for x in f:
         if "has known vulnerabilities" in x:
@@ -217,12 +220,14 @@ def retiretask(lang, repo, type, project_id):
     return 2
 
 
+# Ruta inicial
 @app.route("/")
 def hello():
     celery.send_task("mytask", args=(2, 3))
     return "hola"
 
 
+# Ruta para ejecutar el test (host/check?lang=java&repo=git@github.com:ramirobg94/QuizCore.git&type=git)
 @app.route("/check")
 def check():
     lang = request.args['lang']
@@ -236,7 +241,18 @@ def check():
 
     celery.send_task("checkertask", args=(lang, repo, type, project.id))
     celery.send_task("retiretask", args=(lang, repo, type, project.id))
-    return "checking"
+    return "checking project "+ str(project.id) + ' puedes consutarlo en /status/'+ str(project.id)
+
+# Ruta que nos muestra el estado y vulnerablidades de un proyecto
+@app.route("/status/<int:project_id>")
+def status(project_id):
+    project = Project.query.filter_by(id=project_id).one()
+        #get(project_id).vulnerabilities
+    print(project)
+    print(project.vulnerabilities)
+    #vuls = Vulnerabilities.query.filter_by(project_id = project_id)
+
+    return 'Project %d' % project_id
 
 
 if __name__ == "__main__":
