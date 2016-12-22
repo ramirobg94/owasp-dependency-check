@@ -13,35 +13,35 @@ import uuid
 
 
 #Configuración de la application y el acceso a la bbdd
-def make_celery(app):
-    celery = Celery(app.import_name, backend=app.config['CELERY_BACKEND'],
-                    broker=app.config['CELERY_BROKER_URL'])
-    celery.conf.update(app.config)
-    TaskBase = celery.Task
-    
-    class ContextTask(TaskBase):
-        abstract = True
-        
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return TaskBase.__call__(self, *args, **kwargs)
-    
-    celery.Task = ContextTask
-    return celery
+# def make_celery(app):
+#     celery = Celery(app.import_name, backend=app.config['CELERY_BACKEND'],
+#                     broker=app.config['CELERY_BROKER_URL'])
+#     celery.conf.update(app.config)
+#     TaskBase = celery.Task
+#
+#     class ContextTask(TaskBase):
+#         abstract = True
+#
+#         def __call__(self, *args, **kwargs):
+#             with app.app_context():
+#                 return TaskBase.__call__(self, *args, **kwargs)
+#
+#     celery.Task = ContextTask
+#     return celery
+#
+# app = Flask('checker')
+# app.config.update(
+#     CELERY_BACKEND='redis://localhost:6379',
+#     CELERY_BROKER_URL='redis://localhost:6379'
+# )
 
-app = Flask('checker')
-app.config.update(
-    CELERY_BACKEND='redis://localhost:6379',
-    CELERY_BROKER_URL='redis://localhost:6379'
-)
-
-redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
-
-celery = make_celery(app)
-
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+pg8000://postgres:password@localhost/vulnerabilities'
-db = SQLAlchemy(app)
+# redis_db = redis.StrictRedis(host="localhost", port=6379, db=0)
+#
+# celery = make_celery(app)
+#
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+pg8000://postgres:password@localhost/vulnerabilities'
+# db = SQLAlchemy(app)
 
 #Modelos de las bbdd projects
 class Project(db.Model):
@@ -62,6 +62,7 @@ class Project(db.Model):
 
     def __repr__(self):
         return '<repo %r>' % self.repo
+
 
 # Modelos de la bbdd vulnerabilities
 class Vulnerabilities(db.Model):

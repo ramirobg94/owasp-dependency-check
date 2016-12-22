@@ -1,4 +1,4 @@
-class Vulnerability:
+class VulnerabilitySharedObj:
 
     def __init__(self, library, version, severity, summary, advisory):
         self.library = library
@@ -12,3 +12,6 @@ class Vulnerability:
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+    
+
+__all__ = ("VulnerabilitySharedObj",)
