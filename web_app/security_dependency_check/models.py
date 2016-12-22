@@ -1,4 +1,3 @@
-from flask import current_app
 from flask.ext.sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -52,9 +51,8 @@ class Vulnerabilities(db.Model):
 # Helpers
 # --------------------------------------------------------------------------
 def setup_db(app):
-    
     # Create all tables
     with app.app_context():
         db.create_all()
 
-__all__ = ("Project", "Vulnerabilities")
+__all__ = ("Project", "Vulnerabilities", "db", "setup_db")

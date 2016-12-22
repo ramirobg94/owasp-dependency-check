@@ -5,7 +5,7 @@ from typing import Tuple
 from celery import Celery
 from urllib.parse import urlparse
 
-from security_dependency_check.models import db, create_database
+from security_dependency_check import db, setup_db
 
 
 def _make_celery(app: Flask) -> Celery:
@@ -56,7 +56,7 @@ def make_app(config_path: str) -> Tuple[Flask, Celery]:
     
     # Init database handler
     db.init_app(app)
-    create_database(app)
+    setup_db(app)
     
     # Config celery
     celery = _make_celery(app)

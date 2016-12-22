@@ -6,7 +6,7 @@ from security_dependency_check import Project, celery
 checker_app = Blueprint("checker_app", __name__)
 
 
-@checker_app.route("/", methods=["GET"])
+@checker_app.route("/api/v1/", methods=["GET"])
 def home():
     celery.send_task("mytask", args=(2, 3))
 
@@ -26,7 +26,7 @@ def check():
     db = current_app.config["DB"]
     
     lang = request.args.get('lang', "nodejs")
-    repo = request.args('repo', None)
+    repo = request.args.get('repo', None)
     type = request.args.get('type', "git")  # zip or git
 
     project = Project(lang, repo, type, 2, 0)
@@ -34,7 +34,6 @@ def check():
     db.session.add(project)
     db.session.commit()
     
-    # projects = Project.query.all()
     celery.send_task("owasp_dependency_checker_task", args=(lang, repo, type, project.id))
     celery.send_task("retire_task", args=(lang, repo, type, project.id))
 
