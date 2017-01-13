@@ -2,6 +2,7 @@ import os
 import uuid
 import tempfile
 
+import subprocess
 from cpe import CPE
 from flask import current_app
 import xml.etree.ElementTree as ET
@@ -23,11 +24,12 @@ def joiner_task(project_id: int, other):
     redis_db = current_app.config["REDIS"]
     
     p = Project.query.get(project_id)
-    p.passedTests += 1
+
+    passed = p.passedTests + 1
+
+
     
-    db.session.commit()
-    
-    if p.passedTests == p.numberTests:
+    if passed == p.numberTests:
         r = redis_db.hgetall(project_id)
         
         results = []
@@ -63,7 +65,10 @@ def joiner_task(project_id: int, other):
                                   project_id)
             db.session.add(vul)
             db.session.commit()
-    
+
+    p.passedTests += 1
+    db.session.commit()
+
     return "joiner TODO"
 
 
@@ -81,7 +86,7 @@ def owasp_dependency_checker_task(lang: str, repo: str, type: str, project_id: i
         curr_dir = str(f)
     
         os.system('git clone {} {}'.format(repo, curr_dir))
-        os.system('dependency-check --project "{}" --scan "{}" -f "XML" -o  "{}" --enableExperimental'.format(repo,
+        os.system('/usr/local/bin/dependency-check --project "{}" --scan "{}" -f "XML" -o  "{}" --enableExperimental'.format(repo,
                                                                                                               curr_dir,
                                                                                                               curr_dir))
         
@@ -131,20 +136,35 @@ def retire_task(lang: str, repo: str, type: str, project_id: int):
 
     with tempfile.TemporaryDirectory() as f:
         curr_dir = str(f)
+        #curr_dir = "/tmp/fuckyou/"
     
         os.system('git clone {} {}'.format(repo, curr_dir))
-        
-        with os.chdir(curr_dir):
-            os.system('npm install')
-            os.system('retire --outputformat text --outputpath {}'.format(os.path.join(curr_dir, 'checkba.txt')))
-        
-            f = open("checkba.txt", "r").readlines()
-        
+
+        os.environ["PATH"] = os.environ.get("PATH") + ":/usr/local/bin"
+
+        os.chdir(curr_dir)
+        out_path = os.path.join(curr_dir, 'checkba.txt')
+        subprocess.call('npm install', shell=True)
+
+        os.system('/usr/local/bin/retire --outputformat text --outputpath {}'.format(out_path))
+
+        f = open(out_path, "r").readlines()
+
         to_store = {}
         
         for x in f:
             if "has known vulnerabilities" in x:
-                library, version, _, _, _, _, _, severity = x.split(" ")
+                #library, version, _, _, _, _, _, severity = x.split(" ")
+
+                # ese caracter es la flechita
+                x = x.strip("\r\n \u21B3")
+                a = x.replace("  ", " ")
+                a = x.split(" ")
+
+                #library, version, _, _, _, _, _, severity = x.split(" ")
+                library = a[0]
+                version = a[1]
+                severity = a[6]
                 
                 if "severity" in x:
                     severity = severity
