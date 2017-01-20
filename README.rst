@@ -3,7 +3,7 @@ Open Dependency Security Checker (ODSC)
 
 *aiotasks: A Celery like task manager for the new AsyncIO Python module*
 
-.. image::  doc/logo-small.png
+.. image::  doc/images/logo-small.png
     :height: 64px
     :width: 64px
     :alt: ODSC logo
