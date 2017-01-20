@@ -12,16 +12,16 @@ class Project(db.Model):
     repo = db.Column(db.String(150))
     type = db.Column(db.String(150))
     numberTests = db.Column(db.Integer)
-    passedTests = db.Column(db.Integer)
+    passedTests = db.Column(db.Integer, default=0)
     vulnerabilities = db.relationship('Vulnerabilities', backref="project", cascade="all, delete-orphan", lazy='dynamic')
-    
+
     def __init__(self, lang, repo, type, numberTests, passedTests):
         self.lang = lang
         self.repo = repo
         self.type = type
         self.numberTests = numberTests
         self.passedTests = passedTests
-    
+
     def __repr__(self):
         return '<repo %r>' % self.repo
 
@@ -34,7 +34,7 @@ class Vulnerabilities(db.Model):
     description = db.Column(db.String(500))
     advisory = db.Column(db.String(500))
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'))
-    
+
     def __init__(self, product, version, severity, description, advisory, project_id):
         self.product = product
         self.version = version
@@ -42,7 +42,7 @@ class Vulnerabilities(db.Model):
         self.description = description
         self.advisory = advisory
         self.project_id = project_id
-    
+
     def __repr__(self):
         return '<product %r>' % self.product
 
