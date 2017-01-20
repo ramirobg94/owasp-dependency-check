@@ -1,4 +1,4 @@
-from security_dependency_check import app, checker_app
+from security_dependency_check import app, checker_app, celery
 
 # --------------------------------------------------------------------------
 # Build the app with the Blueprints

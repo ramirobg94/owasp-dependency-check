@@ -194,3 +194,5 @@ def retire_task(lang: str, repo: str, type: str, project_id: int):
 
     # Call the joiner
     celery.send_task("joiner_task", args=(project_id, ))
+
+__all__ = ("joiner_task", "owasp_dependency_checker_task", "retire_task")

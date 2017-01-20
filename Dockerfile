@@ -1,7 +1,6 @@
-FROM python:3.5-slim
+FROM python:3.5
 
 ENV GOSU_VERSION=1.9 \
-    DEBUG=True \
     WORKERS=4
 
 # Update OS, add new user
@@ -10,7 +9,9 @@ RUN useradd -ms /bin/bash web
 # Install Gosu to run with unprivileged user
 ENV GOSU_VERSION 1.9
 RUN set -x \
- && apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/* \
+ && apt-get update && apt-get install -y --no-install-recommends ca-certificates wget \
+ && apt-get install --no-install-recommends -y gcc python3-dev \
+ #&& rm -rf /var/lib/apt/lists/* \
  && dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
  && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch" \
  && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc" \
@@ -23,14 +24,14 @@ RUN set -x \
  && apt-get purge -y --auto-remove ca-certificates wget
 
 # Create folders and get the code
-RUN mkdir /logs /app
+RUN mkdir /app /logs
 
 # Build dependencies
-COPY ./site/requirements.txt /app/
+COPY ./odsc/requirements.txt /app/
 RUN cd /app && pip install --upgrade pip && pip install -r /app/requirements.txt
 
 # Copy site code
-COPY ./site /app/
+COPY ./odsc /app/
 
 # Enable scripts
 RUN chown -R web:web /app /logs && \

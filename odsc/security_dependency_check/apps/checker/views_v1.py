@@ -16,8 +16,8 @@ def home():
     """
 
 
-@checker_app.route("/api/v1/check", methods=["POST", "GET"])
-def check():
+@checker_app.route("/api/v1/create", methods=["GET"])
+def create():
     """
     This end point launch a new analysis and create a new project in the
     database.
@@ -31,25 +31,27 @@ def check():
       - Analysis
     parameters:
       - name: lang
-        in: body
+        in: query
         description: >
             The language or project code. i.e: nodejs, java, python...
         required: true
         type: string
+        default: nodejs
         enum:
             - nodejs
       - name: repo
-        in: body
+        in: query
         description: >
             Remote repository address. i.e: https://github.com/ramirobg94/QuizCore
         required: true
         type: string
       - name: type
-        in: body
+        in: query
         description: >
             Type of remote repository. At this moment only 'GIT' is available.
         required: true
         type: string
+        default: git
         enum:
             - git
             - zip
@@ -85,6 +87,9 @@ def check():
     lang = request.args.get('lang', "nodejs")
     repo = request.args.get('repo', None)
     origin_type = request.args.get('type', "git")  # zip or git
+
+    if not repo:
+        return jsonify(error="Invalid repo value"), 400
 
     try:
         available_tasks = AVAILABLE_TASKS[lang]
@@ -130,7 +135,7 @@ def status(project_id):
                       required: true
                       description: return the project ID
                       enum:
-                        - finish
+                        - finished
                         - running
             examples:
                 application/json:
@@ -151,7 +156,7 @@ def status(project_id):
         return jsonify(error='Project ID not found'), 404
 
     if project.numberTests - project.passedTests == 0:
-        return jsonify(scan_status='finish')
+        return jsonify(scan_status='finished')
     else:
         return jsonify(scan_status='running')
 

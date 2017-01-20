@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
-# Launch site
+cd /app
+
+# Run Celery
+gosu web /usr/local/bin/celery -A run:celery worker -l FATAL &
+
+# Run the web
 gosu web /usr/local/bin/gunicorn \
             --error-logfile /logs/error.log \
             --access-logfile /logs/access.log \
             -w $WORKERS \
-            mlwr_core.wsgi:application -b 0.0.0.0:8000
+            run:app -b 0.0.0.0:8000
