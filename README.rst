@@ -79,6 +79,11 @@ Using a browser
 
 Launch a browser and type the addr: `http://127.0.0.1:8000`.
 
+.. image::  doc/images/screenshot-001.jpg
+
+.. image::  doc/images/screenshot-002.jpg
+
+
 Using console
 -------------
 
