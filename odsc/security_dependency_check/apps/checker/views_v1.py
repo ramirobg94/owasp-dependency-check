@@ -78,7 +78,7 @@ def create():
     """
     AVAILABLE_TASKS = {
         'nodejs': [
-            # 'owasp_dependency_checker_task',
+            'owasp_dependency_checker_task',
             'retire_task'
         ]
     }

@@ -65,6 +65,7 @@ def joiner_task(project_id: int):
             db.session.commit()
 
     p.passedTests += 1
+
     db.session.commit()
 
 
@@ -181,6 +182,8 @@ def retire_task(lang: str, repo: str, type: str, project_id: int):
                 summary = x[x.find("summary"):].replace("\n", '')
                 if not summary:
                     summary = x[x.find("advisory"):].replace("\n", '')
+                if not summary:
+                    summary = "unknown"
 
                 vulnerability = VulnerabilitySharedObj(library,
                                                        version,
