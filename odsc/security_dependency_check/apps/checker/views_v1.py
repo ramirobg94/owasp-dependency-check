@@ -8,7 +8,7 @@ checker_app = Blueprint("checker_app", __name__)
 
 AVAILABLE_TASKS = {
     'nodejs': [
-        # 'owasp_dependency_checker_task',
+        'owasp_dependency_checker_task',
         'retire_task'
     ]
 }
