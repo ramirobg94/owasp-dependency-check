@@ -5,6 +5,13 @@ from security_dependency_check import Project, celery
 
 checker_app = Blueprint("checker_app", __name__)
 
+AVAILABLE_TASKS = {
+    'nodejs': [
+        'owasp_dependency_checker_task',
+        'retire_task'
+    ]
+}
+
 
 @checker_app.route("/", methods=["GET"])
 def home():
@@ -16,7 +23,12 @@ def home():
     """
 
 
-@checker_app.route("/api/v1/create", methods=["GET"])
+@checker_app.route("/api/v1/languages", methods=["GET"])
+def available_languages():
+    return jsonify(dict(languajes=[x for x in AVAILABLE_TASKS.keys()]))
+
+
+@checker_app.route("/api/v1/project/create", methods=["GET"])
 def create():
     """
     This end point launch a new analysis and create a new project in the
@@ -76,12 +88,7 @@ def create():
                       type: string
                       description: error message
     """
-    AVAILABLE_TASKS = {
-        'nodejs': [
-            'owasp_dependency_checker_task',
-            'retire_task'
-        ]
-    }
+
     db = current_app.config["DB"]
 
     lang = request.args.get('lang', "nodejs")
@@ -109,7 +116,7 @@ def create():
     return jsonify(project=project.id)
 
 
-@checker_app.route("/api/v1/status/<int:project_id>", methods=["GET"])
+@checker_app.route("/api/v1/project/status/<int:project_id>", methods=["GET"])
 def status(project_id):
     """
     Check and return the state and vulnerability of the project
@@ -161,7 +168,7 @@ def status(project_id):
         return jsonify(scan_status='running')
 
 
-@checker_app.route("/api/v1/results/<int:project_id>", methods=["GET"])
+@checker_app.route("/api/v1/project/results/<int:project_id>", methods=["GET"])
 def results(project_id):
     """
     Return the results for a project

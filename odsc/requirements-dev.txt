@@ -1,2 +1,4 @@
 pytest
-requests
+pytest-flask
+coverage
+tox
