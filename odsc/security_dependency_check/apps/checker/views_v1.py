@@ -1,4 +1,5 @@
 import sqlalchemy
+
 from flask import Blueprint, current_app, request, jsonify
 
 from security_dependency_check import Project, celery
@@ -107,6 +108,11 @@ def create():
     project = Project(lang, repo, origin_type, len(available_tasks), 0)
     db.session.add(project)
     db.session.commit()
+
+    # Add counter to the Redis
+    current_app.config["REDIS"].setex("ODSC_{}_counter".format(project.id),
+                                      value=len(available_tasks),
+                                      time=360000)  # 10 hours
 
     # Call all analyzers for each language
     for task_name in available_tasks:

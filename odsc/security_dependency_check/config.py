@@ -15,7 +15,7 @@ CELERY_BROKER_URL = os.environ.get("SDC_CELERY_BROKER_URL",
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SQLALCHEMY_DATABASE_URI = os.environ.get(
     "SDC_DATABASE_DSN",
-    "postgresql+pg8000://postgres:password@localhost/vulnerabilities")
+    "postgresql+psycopg2://postgres:password@localhost/vulnerabilities")
 
 ADDITIONAL_BINARY_PATHS = os.environ.get("SDC_ADDITIONAL_PATHS",
                                          ":/usr/local/bin/")

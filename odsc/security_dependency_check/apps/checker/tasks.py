@@ -22,11 +22,7 @@ def joiner_task(project_id: int):
     db = current_app.config["DB"]
     redis_db = current_app.config["REDIS"]
 
-    p = Project.query.get(project_id)
-
-    passed = p.passedTests + 1
-
-    if passed == p.numberTests:
+    if not int(current_app.config["REDIS"].get("ODSC_{}_counter".format(project_id))):
         r = redis_db.hgetall(project_id)
 
         results = []
@@ -61,12 +57,14 @@ def joiner_task(project_id: int):
                                   vul['summary'],
                                   vul['advisory'],
                                   project_id)
+
             db.session.add(vul)
-            db.session.commit()
 
-    p.passedTests += 1
+        p = Project.query.get(project_id)
+        p.passedTests = p.numberTests
 
-    db.session.commit()
+        db.session.add(p)
+        db.session.commit()
 
 
 # --------------------------------------------------------------------------
@@ -92,8 +90,8 @@ def owasp_dependency_checker_task(lang: str,
         os.system('git clone {} {}'.format(repo, curr_dir))
         os.system('dependency-check -n --project "{}" --scan '
                   '"{}" -f "XML" -o  "{}" --enableExperimental'.format(repo,
-                                                                     curr_dir,
-                                                                     curr_dir))
+                                                                       curr_dir,
+                                                                       curr_dir))
 
         tree = ET.parse('{}/dependency-check-report.xml'.format(curr_dir))
         root = tree.getroot()
@@ -119,7 +117,7 @@ def owasp_dependency_checker_task(lang: str,
                         for vulnerable_version in vulnerability.findall(
                                 ".//{}vulnerableSoftware/{}software["
                                 "@allPreviousVersion='true']".format(
-                                        SCHEME, SCHEME)):
+                                    SCHEME, SCHEME)):
                             cpe = CPE(vulnerable_version.text)
                             product = cpe.get_product()[0]
                             version = cpe.get_version()[0]
@@ -134,6 +132,9 @@ def owasp_dependency_checker_task(lang: str,
                                 vulnerability.__dict__
         if cleared_results:
             redis_db.hmset(project_id, cleared_results)
+
+    current_app.config["REDIS"]. \
+        decr("ODSC_{}_counter".format(project_id))
 
     # Call the joiner
     celery.send_task("joiner_task", args=(project_id, ))
@@ -157,8 +158,8 @@ def retire_task(lang: str, repo: str, type: str, project_id: int):
         # Fix output results file
         out_path = os.path.join(curr_dir, 'checkba.txt')
 
-        os.system('retire --outputformat text --outputpath {}'.\
-                format(out_path))
+        os.system('retire --outputformat text --outputpath {}'. \
+                  format(out_path))
 
         f = open(out_path, "r").readlines()
 
@@ -194,6 +195,9 @@ def retire_task(lang: str, repo: str, type: str, project_id: int):
                 to_store[str(uuid.uuid4())] = vulnerability.__dict__
 
         redis_db.hmset(project_id, to_store)
+
+    current_app.config["REDIS"]. \
+        decr("ODSC_{}_counter".format(project_id))
 
     # Call the joiner
     celery.send_task("joiner_task", args=(project_id, ))
