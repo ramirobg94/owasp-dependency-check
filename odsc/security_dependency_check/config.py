@@ -17,4 +17,5 @@ SQLALCHEMY_DATABASE_URI = os.environ.get(
     "SDC_DATABASE_DSN",
     "postgresql+pg8000://postgres:password@localhost/vulnerabilities")
 
-ADDITIONAL_BINARY_PATHS = os.environ.get("SDC_ADDITIONAL_PATHS", ":/usr/local/bin/")
+ADDITIONAL_BINARY_PATHS = os.environ.get("SDC_ADDITIONAL_PATHS",
+                                         ":/usr/local/bin/")
