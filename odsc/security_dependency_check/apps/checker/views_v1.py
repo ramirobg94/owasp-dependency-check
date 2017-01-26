@@ -8,7 +8,7 @@ checker_app = Blueprint("checker_app", __name__)
 
 AVAILABLE_TASKS = {
     'nodejs': [
-        'owasp_dependency_checker_task',
+        # 'owasp_dependency_checker_task',
         'retire_task'
     ]
 }
@@ -28,6 +28,11 @@ def home():
 def available_languages():
     return jsonify(dict(languajes=[x for x in AVAILABLE_TASKS.keys()]))
 
+
+@checker_app.route("/api/v1/project", methods=["GET"])
+@checker_app.route("/api/v1/project/", methods=["GET"])
+def projects_summary():
+    pass
 
 @checker_app.route("/api/v1/project/create", methods=["GET"])
 def create():
