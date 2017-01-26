@@ -132,8 +132,8 @@ def owasp_dependency_checker_task(lang: str,
 
                             cleared_results[str(uuid.uuid1())] = \
                                 vulnerability.__dict__
-
-        redis_db.hmset(project_id, cleared_results)
+        if cleared_results:
+            redis_db.hmset(project_id, cleared_results)
 
     # Call the joiner
     celery.send_task("joiner_task", args=(project_id, ))
