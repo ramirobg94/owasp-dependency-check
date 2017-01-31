@@ -151,10 +151,10 @@ def status(project_id):
         return jsonify(error='Project ID not found'), 404
 
     ret = dict(
-        scan_status="finished" if project.numberTests - \
-                                  project.passedTests == 0 else "running",
-        total_tests=project.numberTests,
-        finished_tests=project.passedTests
+        scan_status="finished" if project.total_tests - \
+                                  project.passed_tests == 0 else "running",
+        total_tests=project.total_tests,
+        finished_tests=project.passed_tests
     )
 
     return jsonify(ret)
@@ -216,7 +216,7 @@ def results(project_id):
                       type: string
                       description: error message
     """
-    VALUES_TO_HIDE_PROJECT = ("id", "numberTests")
+    VALUES_TO_HIDE_PROJECT = ("id", "total_tests")
     VALUES_TO_HIDE_VULNS = ("id", "project_id")
 
     try:
@@ -230,8 +230,8 @@ def results(project_id):
         if not x.startswith("_") and x not in VALUES_TO_HIDE_PROJECT
         }
     project_info[
-        "scan_status"] = "finished" if project.numberTests - \
-                                       project.passedTests == 0 else "running"
+        "scan_status"] = "finished" if project.total_tests - \
+                                       project.passed_tests == 0 else "running"
 
     # Load vulns
     vulnerabilities = [

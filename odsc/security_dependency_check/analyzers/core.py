@@ -91,7 +91,7 @@ def core_merger_task(project_id: int, unmerged_results: List[dict]):
         db.session.add(vul)
 
     p = Project.query.get(project_id)
-    p.passedTests = p.numberTests
+    p.passed_tests = p.total_tests
 
     db.session.add(p)
     db.session.commit()
