@@ -79,15 +79,7 @@ def create():
     db.session.add(project)
     db.session.commit()
 
-    # Add counter to the Redis
-    current_app.config["REDIS"].setex("ODSC_{}_counter".format(project.id),
-                                      value=len(available_tasks),
-                                      time=360000)  # 10 hours
-
-    # Call all analyzers for each language
-    for task_name in available_tasks:
-        celery.send_task(task_name,
-                         args=(repo, project.id))
+    celery.send_task("core_dispatch", args=(lang, repo, project.id))
 
     return jsonify(project=project.id)
 
@@ -118,13 +110,15 @@ def status(project_id):
                       required: true
                       description: return the project status
                       enum:
+                        - created
                         - finished
                         - running
+                        - non-accessible
                     total_tests:
                       type: int
                       required: true
                       description: return total test that will be passed
-                    finished_tests:
+                    passed_tests:
                       type: int
                       required: true
                       description: return finished test at the moment ot check
@@ -132,11 +126,11 @@ def status(project_id):
                 application/json:
                     project: "finish"
                     total_tests: 2
-                    finished_tests: 2
+                    passed_tests: 2
                 application/json:
                     project: "running"
                     total_tests: 2
-                    finished_tests: 1
+                    passed_tests: 1
         404:
             schema:
                 id: check_project_status_project_not_found
@@ -151,10 +145,9 @@ def status(project_id):
         return jsonify(error='Project ID not found'), 404
 
     ret = dict(
-        scan_status="finished" if project.total_tests - \
-                                  project.passed_tests == 0 else "running",
+        scan_status=project.status,
         total_tests=project.total_tests,
-        finished_tests=project.passed_tests
+        passed_tests=project.passed_tests
     )
 
     return jsonify(ret)
@@ -229,9 +222,6 @@ def results(project_id):
         x: y for x, y in project.__dict__.items()
         if not x.startswith("_") and x not in VALUES_TO_HIDE_PROJECT
         }
-    project_info[
-        "scan_status"] = "finished" if project.total_tests - \
-                                       project.passed_tests == 0 else "running"
 
     # Load vulns
     vulnerabilities = [

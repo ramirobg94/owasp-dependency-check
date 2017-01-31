@@ -10,6 +10,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lang = db.Column(db.String(150))
     repo = db.Column(db.String(150))
+    status = db.Column(db.String(150), default="created")
     total_tests = db.Column(db.Integer)
     passed_tests = db.Column(db.Integer, default=0)
     vulnerabilities = db.relationship('Vulnerabilities', backref="project",

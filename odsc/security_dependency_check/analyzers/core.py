@@ -1,21 +1,69 @@
-from typing import List
+import requests
 
+from typing import List
 from flask import current_app
 
 from security_dependency_check import celery, Project, Vulnerabilities
-
-REGEX_SEVERITY = r'''(severity[\s]*:[\s]*)([\w]+)(;)'''
+from .helpers import AVAILABLE_TASKS
 
 try:
     import ujson as json
 except ImportError:
     import json
 
+REGEX_SEVERITY = r'''(severity[\s]*:[\s]*)([\w]+)(;)'''
+
+
+def update_project_status(project_id: int, status: str):
+    p = Project.query.get(project_id)
+    p.status = status
+
+    db = current_app.config["DB"]
+    db.session.add(p)
+    db.session.commit()
+
+
+@celery.task(name="core_dispatch")
+def core_dispatch(lang: str, repo: str, project_id: int):
+    """
+    This tasks do:
+
+    - Clean the URL of repo
+    - Check that repo is accessible
+    - Clone remote repo and create a copy for each tool
+    """
+    # Clean repo URL
+    repo = repo.strip().replace(" ", "")
+
+    # Check if remote is accesible
+    try:
+        if requests.get(repo, timeout=5).status_code != 200:
+            update_project_status(project_id, "non-accessible")
+            return
+
+        selected_tasks = AVAILABLE_TASKS[lang]
+
+        # Add counter to the Redis
+        current_app.config["REDIS"].setex("ODSC_{}_counter".format(project_id),
+                                          value=len(selected_tasks),
+                                          time=360000)  # 10 hours
+
+        # Call all analyzers for each language
+        for task_name in selected_tasks:
+            celery.send_task(task_name, args=(repo, project_id))
+
+        # Update the project status
+        update_project_status(project_id, "running")
+    except:
+        # If any exception occurred mark the project as non-accessible
+        update_project_status(project_id, "non-accessible")
+
 
 @celery.task(name="core_partial_results_storage")
 def core_partial_results_storage(project_id: int, partial_results: dict):
     """This tasks storage partial results of an analysis"""
 
+    db = current_app.config["DB"]
     redis_db = current_app.config["REDIS"]
 
     redis_counter_key = "ODSC_{}_counter".format(project_id)
@@ -30,6 +78,13 @@ def core_partial_results_storage(project_id: int, partial_results: dict):
 
     # Only if counter is less than 0 -> all tasks were ended
     pending_tasks = int(current_app.config["REDIS"].get(redis_counter_key))
+
+    # Update the project passed tests
+    p = Project.query.get(project_id)
+    p.passed_tests += 1
+
+    db.session.add(p)
+    db.session.commit()
 
     if not pending_tasks:
         # Get all partial and non-merged results from Redis
@@ -90,8 +145,10 @@ def core_merger_task(project_id: int, unmerged_results: List[dict]):
 
         db.session.add(vul)
 
+    # Update project status
     p = Project.query.get(project_id)
-    p.passed_tests = p.total_tests
-
+    p.status = "finished"
     db.session.add(p)
+
+    # Commit al changes
     db.session.commit()
