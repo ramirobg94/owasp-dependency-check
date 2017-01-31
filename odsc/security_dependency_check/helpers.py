@@ -12,6 +12,6 @@ class VulnerabilitySharedObj:
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
-    
 
-__all__ = ("VulnerabilitySharedObj",)
+
+__all__ = ("VulnerabilitySharedObj", )

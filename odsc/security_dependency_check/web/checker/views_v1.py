@@ -2,37 +2,11 @@ import sqlalchemy
 
 from flask import Blueprint, current_app, request, jsonify
 
-from security_dependency_check import Project, celery
+from security_dependency_check import Project, celery, AVAILABLE_TASKS
+
 
 checker_app = Blueprint("checker_app", __name__)
 
-AVAILABLE_TASKS = {
-    'nodejs': [
-        'owasp_dependency_checker_task',
-        'retire_task'
-    ]
-}
-
-
-@checker_app.route("/", methods=["GET"])
-def home():
-    return """
-    <html><head><title>Security Dependency Checker</title></head><body>
-    <h1>Wellcome to the Security Dependency Checker</h1>
-    <p>To access to interactive use of SDC API you can follow this link: <a href="/apidocs/index.html">Access to API &rarr;</a></p>
-    </body></html>
-    """
-
-
-@checker_app.route("/api/v1/languages", methods=["GET"])
-def available_languages():
-    return jsonify(dict(languajes=[x for x in AVAILABLE_TASKS.keys()]))
-
-
-@checker_app.route("/api/v1/project", methods=["GET"])
-@checker_app.route("/api/v1/project/", methods=["GET"])
-def projects_summary():
-    pass
 
 @checker_app.route("/api/v1/project/create", methods=["GET"])
 def create():
@@ -42,7 +16,8 @@ def create():
 
     To launch a new project using command line, you can write:
 
-        curl "http://mysite.com/api/v1/check?lang=nodejs&repo=https://github.com/ramirobg94/QuizCore"
+        curl "http://mysite.com/api/v1/check?lang=nodejs&repo=https://github
+        .com/ramirobg94/QuizCore"
 
     ---
     tags:
@@ -60,19 +35,10 @@ def create():
       - name: repo
         in: query
         description: >
-            Remote repository address. i.e: https://github.com/ramirobg94/QuizCore
+            Remote repository address. i.e:
+            https://github.com/ramirobg94/QuizCore
         required: true
         type: string
-      - name: type
-        in: query
-        description: >
-            Type of remote repository. At this moment only 'GIT' is available.
-        required: true
-        type: string
-        default: git
-        enum:
-            - git
-            - zip
     responses:
         200:
             description: Analysis launched correctly
@@ -99,7 +65,6 @@ def create():
 
     lang = request.args.get('lang', "nodejs")
     repo = request.args.get('repo', None)
-    origin_type = request.args.get('type', "git")  # zip or git
 
     if not repo:
         return jsonify(error="Invalid repo value"), 400
@@ -110,7 +75,7 @@ def create():
         return jsonify(error="Language '{}' not available".format(lang)), 400
 
     # Store project information
-    project = Project(lang, repo, origin_type, len(available_tasks), 0)
+    project = Project(lang, repo, len(available_tasks))
     db.session.add(project)
     db.session.commit()
 
@@ -122,7 +87,7 @@ def create():
     # Call all analyzers for each language
     for task_name in available_tasks:
         celery.send_task(task_name,
-                         args=(lang, repo, origin_type, project.id))
+                         args=(repo, project.id))
 
     return jsonify(project=project.id)
 
@@ -151,15 +116,27 @@ def status(project_id):
                     scan_status:
                       type: string
                       required: true
-                      description: return the project ID
+                      description: return the project status
                       enum:
                         - finished
                         - running
+                    total_tests:
+                      type: int
+                      required: true
+                      description: return total test that will be passed
+                    finished_tests:
+                      type: int
+                      required: true
+                      description: return finished test at the moment ot check
             examples:
                 application/json:
                     project: "finish"
+                    total_tests: 2
+                    finished_tests: 2
                 application/json:
                     project: "running"
+                    total_tests: 2
+                    finished_tests: 1
         404:
             schema:
                 id: check_project_status_project_not_found
@@ -173,10 +150,14 @@ def status(project_id):
     except sqlalchemy.orm.exc.NoResultFound:
         return jsonify(error='Project ID not found'), 404
 
-    if project.numberTests - project.passedTests == 0:
-        return jsonify(scan_status='finished')
-    else:
-        return jsonify(scan_status='running')
+    ret = dict(
+        scan_status="finished" if project.numberTests - \
+                                  project.passedTests == 0 else "running",
+        total_tests=project.numberTests,
+        finished_tests=project.passedTests
+    )
+
+    return jsonify(ret)
 
 
 @checker_app.route("/api/v1/project/results/<int:project_id>", methods=["GET"])
@@ -201,7 +182,7 @@ def results(project_id):
                 id: project_results_ok
                 properties:
                     project_info:
-                      type: string
+                      type: list
                     vulnerabilities:
                       type: list
 
@@ -214,8 +195,18 @@ def results(project_id):
                         scan_status: "finished"
                         type: "git"
                     vulnerabilities:
-                        - { version: 3.8.8.3, product: sqlite, severity: Medium, advisory: CVE-2015-6607, description: "SQLite before 3.8.9, as used in Android before 5.1.1 LMY48T, allows attackers to gain privileges via a crafted application, aka internal bug 20099586."}
-                        - { version: 10.10.3, product: mac_os_x, severity: High, advisory: CVE-2015-3717, description: "Multiple buffer overflows in the printf functionality in SQLite, as used in Apple iOS before 8.4 and OS X before 10.10.4, allow remote attackers to execute arbitrary code or cause a denial of service (application crash) via unspecified vectors."}
+                        - { version: 3.8.8.3, product: sqlite, severity:
+                        Medium, advisory: CVE-2015-6607, description:
+                        "SQLite before 3.8.9, as used in Android before
+                        5.1.1 LMY48T, allows attackers to gain privileges
+                        via a crafted application, aka internal bug 20099586."}
+                        - { version: 10.10.3, product: mac_os_x, severity:
+                        High, advisory: CVE-2015-3717, description:
+                        "Multiple buffer overflows in the printf
+                        functionality in SQLite, as used in Apple iOS before
+                        8.4 and OS X before 10.10.4, allow remote attackers
+                        to execute arbitrary code or cause a denial of
+                        service (application crash) via unspecified vectors."}
 
         404:
             schema:
@@ -237,8 +228,10 @@ def results(project_id):
     project_info = {
         x: y for x, y in project.__dict__.items()
         if not x.startswith("_") and x not in VALUES_TO_HIDE_PROJECT
-    }
-    project_info["scan_status"] = "finished" if project.numberTests - project.passedTests == 0 else "running"
+        }
+    project_info[
+        "scan_status"] = "finished" if project.numberTests - \
+                                       project.passedTests == 0 else "running"
 
     # Load vulns
     vulnerabilities = [

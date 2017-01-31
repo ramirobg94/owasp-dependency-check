@@ -1,9 +1,12 @@
-from security_dependency_check import app, checker_app, celery
+from security_dependency_check import (app, checker_app, miscellaneous_app,
+                                       celery, home_app)
 
 # --------------------------------------------------------------------------
 # Build the app with the Blueprints
 # --------------------------------------------------------------------------
+app.register_blueprint(home_app)
 app.register_blueprint(checker_app)
+app.register_blueprint(miscellaneous_app)
 
 
 if __name__ == '__main__':

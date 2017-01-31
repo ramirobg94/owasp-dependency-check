@@ -4,4 +4,5 @@ from .setup import *
 
 app, celery = make_app("config.py")
 
-from .apps import *
+from .analyzers import *
+from .web import *

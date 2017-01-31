@@ -3,6 +3,7 @@ import redis
 from flask import Flask
 from typing import Tuple
 from celery import Celery
+from flask_cors import CORS
 from flasgger import Swagger
 from urllib.parse import urlparse
 
@@ -75,12 +76,16 @@ def make_app(config_path: str) -> Tuple[Flask, Celery]:
                 "title": "SDC API - v1",
                 "endpoint": 'spec',
                 "route": '/spec',
-                "description": "Interactive API for the Security Dependency Checker",
+                "description": "Interactive API for the Security Dependency "
+                               "Checker",
                 "rule_filter": lambda rule: True  # all in
             }
         ]
     }
     Swagger(app)
+
+    # Add CORS
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     return app, celery
 
