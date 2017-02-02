@@ -5,4 +5,4 @@ AVAILABLE_TASKS = {
     ]
 }
 
-__all__ = ("AVAILABLE_TASKS", )
+__all__ = ("AVAILABLE_TASKS",)

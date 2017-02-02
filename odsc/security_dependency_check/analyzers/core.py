@@ -1,10 +1,12 @@
+import os
+import uuid
+import tempfile
 import requests
 
 from typing import List
 from flask import current_app
 
 from security_dependency_check import celery, Project, Vulnerabilities
-from .helpers import AVAILABLE_TASKS
 
 try:
     import ujson as json
@@ -23,6 +25,34 @@ def update_project_status(project_id: int, status: str):
     db.session.commit()
 
 
+@celery.task(name="meta_task_runner")
+def meta_task_runner(task_name: str,
+                     module: str,
+                     repo: str,
+                     project_id: int):
+    manager = celery.ODSC_PLUGINS_MANAGER
+
+    task_obj = vars(manager.load_plugin(module))[task_name]
+
+    with tempfile.TemporaryDirectory() as curr_dir:
+
+        os.environ["PATH"] = os.environ.get("PATH") + \
+                             current_app.config["ADDITIONAL_BINARY_PATHS"]
+
+        # Clone remote dir
+        clone_dir = os.path.join(curr_dir, uuid.uuid4().hex)
+        os.system('git clone {} {}'.format(repo, clone_dir))
+
+        # Passionate to cloned dir
+        os.chdir(clone_dir)
+
+        # Call the function
+        results = task_obj(clone_dir)
+
+        celery.send_task("core_partial_results_storage", args=(project_id,
+                                                               results))
+
+
 @celery.task(name="core_dispatch")
 def core_dispatch(lang: str, repo: str, project_id: int):
     """
@@ -37,11 +67,11 @@ def core_dispatch(lang: str, repo: str, project_id: int):
 
     # Check if remote is accesible
     try:
-        if requests.get(repo, timeout=5).status_code != 200:
+        if requests.get(repo, timeout=20).status_code != 200:
             update_project_status(project_id, "non-accessible")
             return
 
-        selected_tasks = AVAILABLE_TASKS[lang]
+        selected_tasks = celery.ODSC_PLUGINS[lang]
 
         # Add counter to the Redis
         current_app.config["REDIS"].setex("ODSC_{}_counter".format(project_id),
@@ -49,8 +79,11 @@ def core_dispatch(lang: str, repo: str, project_id: int):
                                           time=360000)  # 10 hours
 
         # Call all analyzers for each language
-        for task_name in selected_tasks:
-            celery.send_task(task_name, args=(repo, project_id))
+        for plugin_name, module in selected_tasks:
+            celery.send_task("meta_task_runner", args=(plugin_name,
+                                                       module,
+                                                       repo,
+                                                       project_id))
 
         # Update the project status
         update_project_status(project_id, "running")
@@ -68,6 +101,9 @@ def core_partial_results_storage(project_id: int, partial_results: dict):
 
     redis_counter_key = "ODSC_{}_counter".format(project_id)
     redis_partial_result_key = "ODSC_{}_partial".format(project_id)
+
+    if not partial_results:
+        partial_results = {}
 
     # Storage the results in unique key in Redis
     if partial_results:

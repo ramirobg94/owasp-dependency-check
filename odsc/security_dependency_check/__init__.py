@@ -2,7 +2,8 @@ from .models import *
 from .helpers import *
 from .setup import *
 
-app, celery = make_app("config.py")
+app = make_app("config.py")
+celery = make_celery(app)
 
-from .analyzers import *
 from .web import *
+from .analyzers import *

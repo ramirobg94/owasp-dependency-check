@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from security_dependency_check import AVAILABLE_TASKS
+from security_dependency_check import celery
 
 miscellaneous_app = Blueprint("miscellaneous", __name__)
 
@@ -26,7 +26,7 @@ def available_languages():
                     languages:
                     - nodejs
     """
-    return jsonify(dict(languages=[x for x in AVAILABLE_TASKS.keys()]))
+    return jsonify(dict(languages=[x for x in celery.ODSC_PLUGINS.keys()]))
 
 
 __all__ = ("miscellaneous_app", )

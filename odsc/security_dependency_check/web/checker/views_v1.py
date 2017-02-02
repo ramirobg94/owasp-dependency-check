@@ -2,7 +2,8 @@ import sqlalchemy
 
 from flask import Blueprint, current_app, request, jsonify
 
-from security_dependency_check import Project, celery, AVAILABLE_TASKS
+# from security_dependency_check import Project, celery, AVAILABLE_TASKS
+from security_dependency_check import Project, celery
 
 
 checker_app = Blueprint("checker_app", __name__)
@@ -18,6 +19,10 @@ def create():
 
         curl "http://mysite.com/api/v1/check?lang=nodejs&repo=https://github
         .com/ramirobg94/QuizCore"
+
+    Repo example:
+
+    https://github.com/ramirobg94/QuizCore
 
     ---
     tags:
@@ -70,7 +75,7 @@ def create():
         return jsonify(error="Invalid repo value"), 400
 
     try:
-        available_tasks = AVAILABLE_TASKS[lang]
+        available_tasks = celery.ODSC_PLUGINS[lang]
     except KeyError:
         return jsonify(error="Language '{}' not available".format(lang)), 400
 

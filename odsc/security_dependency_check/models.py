@@ -1,4 +1,5 @@
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_utils import database_exists, create_database
 
 db = SQLAlchemy()
 
@@ -56,8 +57,14 @@ class Vulnerabilities(db.Model):
 # Helpers
 # --------------------------------------------------------------------------
 def setup_db(app):
-    # Create all tables
     with app.app_context():
-        db.create_all()
+        engine = db.create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
+
+        # Check if database exits
+        if not database_exists(engine.url):
+            create_database(engine.url)
+
+            # Create the scheme
+            db.create_all()
 
 __all__ = ("Project", "Vulnerabilities", "db", "setup_db")

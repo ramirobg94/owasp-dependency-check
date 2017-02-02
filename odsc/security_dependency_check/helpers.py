@@ -1,3 +1,6 @@
+from typing import List, Union
+
+
 class VulnerabilitySharedObj:
 
     def __init__(self, library, version, severity, summary, advisory):
@@ -14,4 +17,18 @@ class VulnerabilitySharedObj:
         return self.__dict__ == other.__dict__
 
 
-__all__ = ("VulnerabilitySharedObj", )
+class odsc_plugin(object):
+    def __init__(self, lang: Union[str, List[str]]):
+        if not hasattr(lang, "append"):
+            self.lang = [lang]
+        else:
+            self.lang = lang
+
+    def __call__(self, f):
+        f.odsc_plugin_enable = True
+        f.odsc_plugin_lang = self.lang
+
+        return f
+
+
+__all__ = ("VulnerabilitySharedObj", "odsc_plugin")

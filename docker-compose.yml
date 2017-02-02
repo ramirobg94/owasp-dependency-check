@@ -1,0 +1,51 @@
+osdc_web:
+  build: .
+  links:
+    - db
+    - redis
+    - osdc_celery
+  environment:
+    - ODSC_REDIS_HOST=redis
+    - ODSC_REDIS_PORT=6379
+    - ODSC_POSTGRES_HOST=db
+    - ODSC_POSTGRES_PORT=5432
+    - ODSC_POSTGRES_USER=postgres
+    - ODSC_POSTGRES_PASSWORD=postgres
+    - ODSC_POSTGRES_DB=vulnerabilities
+    - ODSC_LISTEN_ADDR=127.0.0.1
+    - ODSC_LISTEN_PORT=8001
+    - ODSC_WORKERS=4
+  entrypoint:
+    - /app/run_web.sh
+
+osdc_celery:
+  build: .
+  links:
+    - db
+    - redis
+  environment:
+    - ODSC_REDIS_HOST=redis
+    - ODSC_REDIS_PORT=6379
+    - ODSC_POSTGRES_HOST=db
+    - ODSC_POSTGRES_PORT=5432
+    - ODSC_POSTGRES_USER=postgres
+    - ODSC_POSTGRES_PASSWORD=postgres
+    - ODSC_POSTGRES_DB=vulnerabilities
+  entrypoint:
+#    - /app/run_celery.sh
+     - /bin/bash
+db:
+  image: postgres:9.6-alpine
+  environment:
+    - POSTGRES_PASSWORD=postgres
+
+redis:
+  image: redis:3-alpine
+
+nginx:
+  build: .
+  dockerfile: Dockerfile-nginx
+  ports:
+    - "80:80"
+  links:
+    - osdc_web
