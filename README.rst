@@ -3,7 +3,7 @@ Open Dependency Security Checker (ODSC)
 
 *ODSC: Multi-tool security dependency checker as a service*
 
-.. image::  doc/images/logo-small.png
+.. image::  https://raw.githubusercontent.com/ramirobg94/owasp-dependency-check/master/docs/images/logo-small.png?token=AD4zZhDbjt9c5NjsHLqgJglY5fe-TZ0Rks5YnFaCwA%3D%3D
     :height: 64px
     :width: 64px
     :alt: ODSC logo
