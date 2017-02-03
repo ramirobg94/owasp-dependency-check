@@ -80,15 +80,27 @@ def create():
         return jsonify(error="Language '{}' not available".format(lang)), 400
 
     # Store project information
-    project = Project(lang, repo, len(available_tasks))
-    db.session.add(project)
-    db.session.commit()
+    try:
+        project = Project(lang, repo, len(available_tasks))
+        db.session.add(project)
+        db.session.commit()
+    except sqlalchemy.exc.DataError:
+        # ---------------------------------------------------------------------
+        # We do that because the primary key of the project is an UUID4
+        # generated in Python code. The probabilities of a collision with
+        # another primary key are lower, but, to ensure that we do a second
+        # round to decrease the collision probabilities
+        # ---------------------------------------------------------------------
+        project = Project(lang, repo, len(available_tasks))
+        db.session.add(project)
+        db.session.commit()
 
     celery.send_task("core_dispatch", args=(lang, repo, project.id))
 
     return jsonify(project=project.id)
 
 
+@checker_app.route("/api/v1/project/status/<string:project_id>", methods=["GET"])
 @checker_app.route("/api/v1/project/status/<int:project_id>", methods=["GET"])
 def status(project_id):
     """
@@ -158,6 +170,7 @@ def status(project_id):
     return jsonify(ret)
 
 
+@checker_app.route("/api/v1/project/results/<string:project_id>", methods=["GET"])
 @checker_app.route("/api/v1/project/results/<int:project_id>", methods=["GET"])
 def results(project_id):
     """
@@ -191,7 +204,6 @@ def results(project_id):
                         passedTest: 1
                         repo: "https://github.com/ramirobg94/QuizCore"
                         scan_status: "finished"
-                        type: "git"
                     vulnerabilities:
                         - { version: 3.8.8.3, product: sqlite, severity:
                         Medium, advisory: CVE-2015-6607, description:

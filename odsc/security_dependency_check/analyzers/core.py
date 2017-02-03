@@ -1,8 +1,10 @@
 import os
 import uuid
+import shutil
 import tempfile
 import requests
 
+from time import sleep
 from typing import List
 from flask import current_app
 
@@ -34,13 +36,14 @@ def meta_task_runner(task_name: str,
 
     task_obj = vars(manager.load_plugin(module))[task_name]
 
-    with tempfile.TemporaryDirectory() as curr_dir:
+    curr_dir = tempfile.TemporaryDirectory()
 
+    try:
         os.environ["PATH"] = os.environ.get("PATH") + \
                              current_app.config["ADDITIONAL_BINARY_PATHS"]
 
         # Clone remote dir
-        clone_dir = os.path.join(curr_dir, uuid.uuid4().hex)
+        clone_dir = os.path.join(curr_dir.name, uuid.uuid4().hex)
         os.system('git clone {} {}'.format(repo, clone_dir))
 
         # Passionate to cloned dir
@@ -51,6 +54,32 @@ def meta_task_runner(task_name: str,
 
         celery.send_task("core_partial_results_storage", args=(project_id,
                                                                results))
+    finally:
+        for _ in range(5):
+            try:
+                shutil.rmtree(curr_dir.name)
+                break
+            except (PermissionError, OSError) as e:
+                print(e)
+                sleep(1)
+    #
+    # with tempfile.TemporaryDirectory() as curr_dir:
+    #
+    #     os.environ["PATH"] = os.environ.get("PATH") + \
+    #                          current_app.config["ADDITIONAL_BINARY_PATHS"]
+    #
+    #     # Clone remote dir
+    #     clone_dir = os.path.join(curr_dir, uuid.uuid4().hex)
+    #     os.system('git clone {} {}'.format(repo, clone_dir))
+    #
+    #     # Passionate to cloned dir
+    #     os.chdir(clone_dir)
+    #
+    #     # Call the function
+    #     results = task_obj(clone_dir)
+    #
+    #     celery.send_task("core_partial_results_storage", args=(project_id,
+    #                                                            results))
 
 
 @celery.task(name="core_dispatch")
@@ -102,9 +131,6 @@ def core_partial_results_storage(project_id: int, partial_results: dict):
     redis_counter_key = "ODSC_{}_counter".format(project_id)
     redis_partial_result_key = "ODSC_{}_partial".format(project_id)
 
-    if not partial_results:
-        partial_results = {}
-
     # Storage the results in unique key in Redis
     if partial_results:
         redis_db.set(redis_partial_result_key, json.dumps(partial_results))
@@ -125,6 +151,9 @@ def core_partial_results_storage(project_id: int, partial_results: dict):
     if not pending_tasks:
         # Get all partial and non-merged results from Redis
         redis_info = redis_db.get(redis_partial_result_key)
+
+        if not redis_info:
+            redis_info = "[]"
 
         if type(redis_info) is bytes:
             redis_info = redis_info.decode()
