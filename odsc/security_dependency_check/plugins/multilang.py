@@ -1,74 +1,66 @@
-# import os
-# import tempfile
-# import uuid
-# import xml.etree.ElementTree as ET
-#
-# from cpe import CPE
-# from flask import current_app
-#
-# from security_dependency_check import VulnerabilitySharedObj, odsc_plugin
-#
-#
-# # @celery.task(name="owasp_dependency_checker_task")
-# @odsc_plugin(lang=["java", "nodejs"])
-# def owasp_dependency_checker_task(repo: str,
-#                                   project_id: int):
-#     """
-#     Run OWASP dependency-check and storage all vulnerabilities in
-#     an unified format in Redis
-#     """
-#
-#     with tempfile.TemporaryDirectory() as curr_dir:
-#         os.environ["PATH"] = os.environ.get("PATH") + \
-#                              current_app.config["ADDITIONAL_BINARY_PATHS"]
-#
-#         os.system('git clone {} {}'.format(repo, curr_dir))
-#         os.system('dependency-check -n --project "{}" --scan '
-#                   '"{}" -f "XML" -o  "{}" --enableExperimental'.format(repo,
-#                                                                        curr_dir,
-#                                                                        curr_dir))
-#
-#         tree = ET.parse('{}/dependency-check-report.xml'.format(curr_dir))
-#         root = tree.getroot()
-#         cleared_results = {}
-#
-#         SCHEME = "{https://jeremylong.github.io/DependencyCheck/dependency" \
-#                  "-check.1.3.xsd}"
-#
-#         for neighbor in root[2]:
-#             for elemts in neighbor:
-#                 if 'vulnerabilities' in elemts.tag:
-#                     for vulnerability in elemts:
-#                         advisory = getattr(
-#                             vulnerability.find("{}name".format(SCHEME)),
-#                             "text", "")
-#                         severity = getattr(
-#                             vulnerability.find("{}severity".format(SCHEME)),
-#                             "text", "")
-#                         description = getattr(
-#                             vulnerability.find("{}description".format(SCHEME)),
-#                             "text", "")
-#
-#                         for vulnerable_version in vulnerability.findall(
-#                                 ".//{}vulnerableSoftware/{}software["
-#                                 "@allPreviousVersion='true']".format(
-#                                     SCHEME, SCHEME)):
-#                             cpe = CPE(vulnerable_version.text)
-#                             product = cpe.get_product()[0]
-#                             version = cpe.get_version()[0]
-#
-#                             vulnerability = VulnerabilitySharedObj(product,
-#                                                                    version,
-#                                                                    severity,
-#                                                                    description,
-#                                                                    advisory)
-#
-#                             cleared_results[str(uuid.uuid1())] = \
-#                                 vulnerability.__dict__
-#
-#     # Call the joiner
-#     celery.send_task("core_partial_results_storage", args=(project_id,
-#                                                            cleared_results))
-#
-#
-# __all__ = ("owasp_dependency_checker_task", )
+import os
+import xml.etree.ElementTree as ET
+
+from cpe import CPE
+from typing import List, Dict
+from security_dependency_check import odsc_plugin
+
+
+@odsc_plugin(lang="nodejs")
+def owasp_dependency_checker_task(source_code_location: str) -> List[Dict]:
+    """
+    Run OWASP dependency-check and storage all vulnerabilities in
+    an unified format in Redis
+    """
+    command = ['dependency-check --project "{loc}" --scan',
+               ' "{loc}" -f "XML" -o {loc}',
+               ' --enableExperimental']
+
+    # Install dependencies is VERY important
+    os.system("npm install")
+
+    # We use os.system instead of subprocess.call because because the OWASP
+    # Dependency check tool can take te CVE wordlist downloaded from the OS
+    # context. Using subprocess.call this is not possible. This implies
+    # that without the context no vulnerabilities was detected
+    os.system("".join(command).format(loc=source_code_location))
+
+    tree = ET.parse('{}/dependency-check-report.xml'. \
+                    format(source_code_location))
+    root = tree.getroot()
+
+    SCHEME = "{https://jeremylong.github.io/DependencyCheck/dependency" \
+             "-check.1.3.xsd}"
+
+    results = []
+    for dependency in root.iterfind(".//{}dependency".format(SCHEME)):
+        # Get dep info
+
+        vulnerabilities = dependency.findall(".//{}vulnerability".format(SCHEME))
+        for vulnerability in vulnerabilities:
+            advisory = getattr(
+                vulnerability.find("{}name".format(SCHEME)),
+                "text", "")
+            severity = getattr(
+                vulnerability.find("{}severity".format(SCHEME)),
+                "text", "")
+            summary = getattr(
+                vulnerability.find("{}description".format(
+                    SCHEME)),
+                "text", "")
+
+            for vulnerable_version in vulnerability.findall(
+                    ".//{}vulnerableSoftware/{}software["
+                    "@allPreviousVersion='true']".format(
+                        SCHEME, SCHEME)):
+                cpe = CPE(vulnerable_version.text)
+                library = cpe.get_product()[0]
+                version = cpe.get_version()[0]
+
+                results.append(dict(library=library,
+                                    version=version,
+                                    severity=severity,
+                                    summary=summary,
+                                    advisory=advisory))
+
+    return results

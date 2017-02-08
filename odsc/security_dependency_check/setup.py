@@ -32,7 +32,8 @@ def find_odsc_plugins(start_paths: List[str] = None) -> Union[Dict, object]:
                                                "plugins")]
 
     # Load plugins from directories
-    plugin_base = PluginBase(package="odsc.plugins")
+    # plugin_base = PluginBase(package="odsc.plugins")
+    plugin_base = PluginBase(package="security_dependency_check.plugins")
     plugin_source = plugin_base.make_plugin_source(searchpath=start_paths)
 
     # Locate plugins

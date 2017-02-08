@@ -6,9 +6,12 @@ are mocked
 import uuid
 import random
 
+from flasgger import Swagger
 from flask import Flask, request, jsonify
 
 mock_rest_api = Flask("rest_mock")
+
+Swagger(mock_rest_api)
 
 ODSC_PLUGINS = {
     'nodejs': 2
@@ -94,7 +97,12 @@ def _update_project(project_id):
         ]
 
 
-@mock_rest_api.route("/api/v1/project/create", methods=["GET"])
+@mock_rest_api.route("/api/v1/projects", methods=["GET"])
+def projects_summary():
+    pass
+
+
+@mock_rest_api.route("/api/v1/projects", methods=["POST"])
 def create():
     """
     This end point launch a new analysis and create a new project in the
@@ -176,9 +184,26 @@ def create():
     return jsonify(project=project_id)
 
 
-@mock_rest_api.route("/api/v1/project/status/<int:project_id>", methods=["GET"])
-@mock_rest_api.route("/api/v1/project/status/<string:project_id>", methods=["GET"])
-def status(project_id):
+@mock_rest_api.route("/api/v1/projects/<string:project_id>", methods=["GET"])
+def project_summary(project_id):
+    pass
+
+
+@mock_rest_api.route("/api/v1/projects/<string:project_id>/revisions",
+                     methods=["GET"],
+                     defaults={"revision_id": 0})
+@mock_rest_api.route("/api/v1/projects/<string:project_id>/revisions/<int:revision_id>",
+                     methods=["GET"])
+def revisions(project_id, revision_id=0):
+    pass
+
+
+@mock_rest_api.route("/api/v1/projects/<string:project_id>/status",
+                     methods=["GET"],
+                     defaults={"revision_id": 0})
+@mock_rest_api.route("/api/v1/projects/<string:project_id>/status/<int:revision_id>",
+                     methods=["GET"])
+def status(project_id, revision_id=None):
     """
     Check and return the state and vulnerability of the project
 
@@ -241,9 +266,8 @@ def status(project_id):
         return jsonify(error='Project ID not found'), 404
 
 
-@mock_rest_api.route("/api/v1/project/results/<int:project_id>", methods=["GET"])
-@mock_rest_api.route("/api/v1/project/results/<string:project_id>", methods=["GET"])
-def results(project_id):
+@mock_rest_api.route("/api/v1/results/<string:project_id>/<int:revision_id>", methods=["GET"])
+def results(project_id, revision_id=0):
     """
     Return the results for a project
 
@@ -309,6 +333,11 @@ def results(project_id):
 
     except KeyError:
         return jsonify(error='Project ID not found'), 404
+
+#
+#
+#
+#
 
 if __name__ == '__main__':
     mock_rest_api.run("127.0.0.1",

@@ -1,19 +1,23 @@
 import os
 import uuid
 import shutil
-import tempfile
+import logging
 import requests
+import tempfile
 
-from time import sleep
-from typing import List
+from typing import List, Dict
 from flask import current_app
 
 from security_dependency_check import celery, Project, Vulnerabilities
+
+from .helpers import has_valid_format
 
 try:
     import ujson as json
 except ImportError:
     import json
+
+log = logging.getLogger("celery")
 
 REGEX_SEVERITY = r'''(severity[\s]*:[\s]*)([\w]+)(;)'''
 
@@ -36,50 +40,39 @@ def meta_task_runner(task_name: str,
 
     task_obj = vars(manager.load_plugin(module))[task_name]
 
+    # Create the temporal directory
     curr_dir = tempfile.TemporaryDirectory()
 
+    # Prepare to run the task
+    os.environ["PATH"] = os.environ.get("PATH") + \
+                         current_app.config["ADDITIONAL_BINARY_PATHS"]
+
+    # Clone remote dir
+    clone_dir = os.path.join(curr_dir.name, uuid.uuid4().hex)
+    os.system('git clone {} {}'.format(repo, clone_dir))
+
+    # Passionate to cloned dir
+    os.chdir(clone_dir)
+
+    # Call the function
     try:
-        os.environ["PATH"] = os.environ.get("PATH") + \
-                             current_app.config["ADDITIONAL_BINARY_PATHS"]
-
-        # Clone remote dir
-        clone_dir = os.path.join(curr_dir.name, uuid.uuid4().hex)
-        os.system('git clone {} {}'.format(repo, clone_dir))
-
-        # Passionate to cloned dir
-        os.chdir(clone_dir)
-
-        # Call the function
         results = task_obj(clone_dir)
+    except Exception as e:
+        results = None
+        log.error("Plugin '{}' was generated an exception for project '{}': "
+                  "{}".format(task_name, project_id, e))
 
-        celery.send_task("core_partial_results_storage", args=(project_id,
-                                                               results))
-    finally:
-        for _ in range(5):
-            try:
-                shutil.rmtree(curr_dir.name)
-                break
-            except (PermissionError, OSError) as e:
-                print(e)
-                sleep(1)
-    #
-    # with tempfile.TemporaryDirectory() as curr_dir:
-    #
-    #     os.environ["PATH"] = os.environ.get("PATH") + \
-    #                          current_app.config["ADDITIONAL_BINARY_PATHS"]
-    #
-    #     # Clone remote dir
-    #     clone_dir = os.path.join(curr_dir, uuid.uuid4().hex)
-    #     os.system('git clone {} {}'.format(repo, clone_dir))
-    #
-    #     # Passionate to cloned dir
-    #     os.chdir(clone_dir)
-    #
-    #     # Call the function
-    #     results = task_obj(clone_dir)
-    #
-    #     celery.send_task("core_partial_results_storage", args=(project_id,
-    #                                                            results))
+    # Check plugin result format
+    if not has_valid_format(results):
+        log.error("Plugin '{}' was generated results with invalid format "
+                  "for project '{}'".format(task_name, project_id))
+
+    celery.send_task("core_partial_results_storage", args=(project_id,
+                                                           results))
+
+    # Cleanup and remote the temporal directory
+    curr_dir.cleanup()
+    shutil.rmtree(curr_dir.name, ignore_errors=True)
 
 
 @celery.task(name="core_dispatch")
@@ -122,7 +115,7 @@ def core_dispatch(lang: str, repo: str, project_id: int):
 
 
 @celery.task(name="core_partial_results_storage")
-def core_partial_results_storage(project_id: int, partial_results: dict):
+def core_partial_results_storage(project_id: int, partial_results: List[Dict]):
     """This tasks storage partial results of an analysis"""
 
     db = current_app.config["DB"]
@@ -182,9 +175,6 @@ def core_merger_task(project_id: int, unmerged_results: List[dict]):
 
     cleaned_results = []
     for i, result in enumerate(unmerged_results):
-
-        if not result['library']:
-            continue
 
         if not cleaned_results:
             cleaned_results.append(result)

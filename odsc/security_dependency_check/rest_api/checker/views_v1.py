@@ -17,8 +17,7 @@ def create():
 
     To launch a new project using command line, you can write:
 
-        curl "http://mysite.com/api/v1/check?lang=nodejs&repo=https://github
-        .com/ramirobg94/QuizCore"
+        curl "http://mysite.com/api/v1/check?lang=nodejs&repo=https://github.com/ramirobg94/QuizCore"
 
     Repo example:
 
@@ -100,8 +99,7 @@ def create():
     return jsonify(project=project.id)
 
 
-@checker_app.route("/api/v1/project/status/<string:project_id>", methods=["GET"])
-@checker_app.route("/api/v1/project/status/<int:project_id>", methods=["GET"])
+@checker_app.route("/api/v1/project/status/<project_id>", methods=["GET"])
 def status(project_id):
     """
     Check and return the state and vulnerability of the project
@@ -170,8 +168,7 @@ def status(project_id):
     return jsonify(ret)
 
 
-@checker_app.route("/api/v1/project/results/<string:project_id>", methods=["GET"])
-@checker_app.route("/api/v1/project/results/<int:project_id>", methods=["GET"])
+@checker_app.route("/api/v1/project/results/<project_id>", methods=["GET"])
 def results(project_id):
     """
     Return the results for a project

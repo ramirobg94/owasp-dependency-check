@@ -1,95 +1,65 @@
 Open Dependency Security Checker (ODSC)
 =======================================
 
-*ODSC: Multi-tool security dependency checker as a service*
+*ODSC: Open Security Dependency Checker as a service*
 
-.. image::  https://raw.githubusercontent.com/ramirobg94/owasp-dependency-check/master/docs/images/logo-small.png?token=AD4zZhDbjt9c5NjsHLqgJglY5fe-TZ0Rks5YnFaCwA%3D%3D
+.. image::  https://raw.githubusercontent.com/bbva/odsc/master/doc/images/logo-small.png
     :height: 64px
     :width: 64px
+    :
     :alt: ODSC logo
 
-+----------------+--------------------------------------------------------------------+
-|Project site    | https://github.com/ramirobg94/owasp-dependency-check               |
-+----------------+--------------------------------------------------------------------+
-|Issues          | https://github.com/ramirobg94/owasp-dependency-check/issues/       |
-+----------------+--------------------------------------------------------------------+
-|Documentation   | https://aiotasks.readthedocs.org/                                  |
-+----------------+--------------------------------------------------------------------+
-|Author          | Ramiro Blázquez / Daniel Garcia (cr0hn)                            |
-+----------------+--------------------------------------------------------------------+
-|Latest Version  | 1.0.0                                                              |
-+----------------+--------------------------------------------------------------------+
-|Python versions | 3.5 or above                                                       |
-+----------------+--------------------------------------------------------------------+
++----------------+--------------------------------------------+
+|Project site    | https://github.com/bbva/odsc               |
++----------------+--------------------------------------------+
+|Issues          | https://github.com/bbva/odsc/issues/       |
++----------------+--------------------------------------------+
+|Documentation   | https://odsc.readthedocs.org/              |
++----------------+--------------------------------------------+
+|Authors         | Ramiro Blázquez / Daniel Garcia (cr0hn)    |
++----------------+--------------------------------------------+
+|Latest Version  | 1.0.0                                      |
++----------------+--------------------------------------------+
+|Python versions | 3.5 or above                               |
++----------------+--------------------------------------------+
 
-
-Install From Docker
+ODSC in a few words
 ===================
 
+Is a meta tool to analyze the security Issues in third party libraries used in your project.
 
-.. code-block:: bash
+Why?
+====
 
-    # docker run cr0hn/odsc
+There're **many different tools for analyze third party vulnerabilities** for many languages, **but there're not a unique tool that works well for all of them**.
 
-Install From source
-===================
+This implies that:
 
-.. code-block:: bash
+1. you need to locate the language specific tool,
+2. learn how use it,
+3. transform the results format to one you understand
 
-    # pip install -r odsc/requirements.txt
+We're created **this project to simplify this process** and you can focused only in the important: your project.
 
-Binary requisites
------------------
+**ODSC** is a tool that **can choose the most suitable security tools for each languages and return unified and in friendly way**: a JSON format.
 
-ODSC uses various software to launch the analysis. To do that, you need to install:
+Documentation
+=============
 
-- retire: https://www.npmjs.com/package/retire
-- OWASP Dependency Check: https://www.owasp.org/index.php/OWASP_Dependency_Check
+Go to documentation site: https://odsc.readthedocs.org/
 
-Environment vars
-----------------
+Contributing
+============
 
-- REDIS: Redis addr. Default: redis://localhost:6379
-- CELERY_BACKEND. Celery backend used. Usually a database. Default: redis://localhost:6379
-- CELERY_BROKER_URL: Broker used for distribute tasks. Default: redis://localhost:6379
-- SQLALCHEMY_DATABASE_URI: Database DSN where store the results. Default: postgresql+pg8000://postgres:password@localhost/vulnerabilities
-- ADDITIONAL_BINARY_PATHS: If your `retire` or `owasp-dependency-check` are not in the default system PATH, you can add more paths. Default: ":/usr/local/bin/"
+Any collaboration is welcome!
 
-Launch Celery
--------------
+There're many tasks to do.You can check the `Issues <https://github.com/bbva/odsc/issues/>`_ and send us a Pull Request.
 
-.. code-block:: bash
+License
+=======
 
-    # cd odsc
-    # celery -A run:celery worker -l INFO
+This project is distributed under `MIT license <https://github.com/BBVA/ODSC/blob/master/LICENSE>`_
 
-Launch web application
-----------------------
-
-.. code-block:: bash
-
-    # cd odsc
-    # gunicorn -w 4 run:app
-
-Using the project
-=================
-
-Using a browser
----------------
-
-Launch a browser and type the addr: `http://127.0.0.1:8000`.
-
-.. image::  doc/images/screenshot-001.jpg
-
-.. image::  doc/images/screenshot-002.jpg
-
-
-Using console
--------------
-
-.. code-block:: bash
-
-    # curl "http://127.0.0.1:8000/api/v1/check?lang=nodejs&repo=https://github.com/ramirobg94/QuizCore"
 
 License
 =======

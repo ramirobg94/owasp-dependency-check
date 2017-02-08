@@ -1,6 +1,6 @@
 import os
 import re
-import subprocess
+
 from typing import List, Dict
 
 from security_dependency_check import odsc_plugin
@@ -12,7 +12,7 @@ REGEX_SEVERITY = r'''(severity[\s]*:[\s]*)([\w]+)(;)'''
 def nodejs_retire_task(source_code_location: str) -> List[Dict]:
 
     # Install their dependencies
-    subprocess.call('npm install', shell=True)
+    os.system('npm install')
 
     # Fix output results file
     out_path = os.path.join(source_code_location, 'retire_results.txt')

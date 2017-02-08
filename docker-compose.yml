@@ -12,11 +12,10 @@ osdc_web:
     - ODSC_POSTGRES_USER=postgres
     - ODSC_POSTGRES_PASSWORD=postgres
     - ODSC_POSTGRES_DB=vulnerabilities
-    - ODSC_LISTEN_ADDR=127.0.0.1
-    - ODSC_LISTEN_PORT=8001
+    - ODSC_LISTEN_ADDR=0.0.0.0
+    - ODSC_LISTEN_PORT=8000
     - ODSC_WORKERS=4
-  entrypoint:
-    - /app/run_web.sh
+  command: gosu web /odsc/run_web.sh
 
 osdc_celery:
   build: .
@@ -31,9 +30,9 @@ osdc_celery:
     - ODSC_POSTGRES_USER=postgres
     - ODSC_POSTGRES_PASSWORD=postgres
     - ODSC_POSTGRES_DB=vulnerabilities
-  entrypoint:
-#    - /app/run_celery.sh
-     - /bin/bash
+  command: gosu web /odsc/run_celery.sh
+#  command: gosu web /bin/sleep 10000s
+
 db:
   image: postgres:9.6-alpine
   environment:
