@@ -1,0 +1,2 @@
+export const SET_FILTER_LEVEL= 'SET_FILTER_LEVEL';
+export const SET_FILTER_ORDER= 'SET_FILTER_ORDER';
